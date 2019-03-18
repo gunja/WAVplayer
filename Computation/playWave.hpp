@@ -1,23 +1,20 @@
 #pragma once
 #include <iostream>
-#include <Windows.h>
-#include <mmsystem.h>
 #include <string>
 #include <fstream>
 #include <QObject>
-
-using namespace std;
 
 class WavePlayer
 {
 	Q_OBJECT
    std::string activeFileName;
    bool isPlaying;
+   bool isPaused;
 public:
 	WavePlayer();
 	~WavePlayer();
 
-	void playMusic(string filePath);
+        void playMusic(std::string filePath);
 	void stopPlaying();
 	// same call is used for pause/resume
 	// set argument to false to resume playback
