@@ -1,17 +1,20 @@
 #pragma once
+#include <QtCore>
 #include <iostream>
 #include <string>
 #include <fstream>
 #include <QObject>
+#include "mythread.h"
 
-class WavePlayer
+class WavePlayer: public QObject
 {
 	Q_OBJECT
    std::string activeFileName;
    bool isPlaying;
    bool isPaused;
+   MyThread playerThread;
 public:
-	WavePlayer();
+    WavePlayer(QObject * par);
 	~WavePlayer();
 
         void playMusic(std::string filePath);
@@ -20,7 +23,7 @@ public:
 	// set argument to false to resume playback
 	void pausePlaying(bool = true);
 	// method only as interface. Implemented as empty method;
-	bool setVolumePercentage( int perc) { if( perc >=0 && perc <=100) return true; else return false;};
+    bool setVolumePercentage( int perc) { if( perc >=0 && perc <=100) return true; else return false;}
 	// Player can be in the following states:
 	// 0 - idle.
 	// 1 - playing

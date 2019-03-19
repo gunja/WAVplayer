@@ -1,4 +1,4 @@
-#include <windows.h>
+#include <Windows.h>
 #include <mmsystem.h>
 #include <stdio.h>
 /* some good values for block size and count */

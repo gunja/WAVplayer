@@ -27,7 +27,6 @@ struct _DatasubChunkHeaderStruct {
     uint32_t id;
     uint32_t len;
 };
-
 #pragma pack( pop)
 
 #define RIFF 0x46464952
@@ -35,18 +34,18 @@ struct _DatasubChunkHeaderStruct {
 #define FMT 0x20746d66
 #define DATA 0x61746164
 
-WavePlayer::WavePlayer: activeFileName(""), isPlaying(false)
-  , isPaused(false)
+WavePlayer::WavePlayer(QObject * par) : QObject(par), activeFileName("")
+    , isPlaying(false) , isPaused(false), playerThread(this)
 {
 // TODO
 }
 
-WavePlayer::~WavePlayer
+WavePlayer::~WavePlayer()
 {
 // TODO
 }
 
-int WavePlayer::getPlayerState()
+int WavePlayer::getPlayerState() const
 {
     if(isPlaying ) {
         if (isPaused)
@@ -63,14 +62,14 @@ void WavePlayer::playMusic(std::string filePath)
     struct wavHeaderStruct wv;
     struct _FMTsubChunkStruct fmt;
     struct _DatasubChunkHeaderStruct dataHdr;
-    FILE * fin = fopen( flePath.c_str(),"rb");
+    FILE * fin = fopen( filePath.c_str(),"rb");
     if( fin == nullptr) {
         emit playerReport( 5);
         return;
     }
     // if it's WAV file, first 12 bytes should be
     // of pre-defined form:
-    int rv = fread(&wv, sizeof(struct wavHeaderStruct), 1, fin);
+    size_t rv = fread(&wv, sizeof(struct wavHeaderStruct), 1, fin);
     if( rv != 1 ) {
         fclose( fin);
         emit playerReport( 6);
@@ -105,8 +104,8 @@ void WavePlayer::playMusic(std::string filePath)
     }
     playerThread.setFile(fin);
     playerThread.setLength(dataHdr.len);
-    playerThread.go();
-        std::cout << "the music is playing ..." << endl;
+    playerThread.start();
+        std::cout << "the music is playing ..." << std::endl;
     // if everything started well,
     isPlaying = true;
 }
@@ -121,7 +120,7 @@ void WavePlayer::stopPlaying()
     if(isPlaying) {
         // TODO stop playing. clear objects
     }
-	cout << "the music is stop!" << endl;
+    std::cout << "the music is stop!" << std::endl;
 }
 
 void WavePlayer::pausePlaying( bool setPaused)
