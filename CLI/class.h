@@ -13,7 +13,7 @@ class CLIClass : public QObject
 {
 	int argc;
     char **argv;
-    int next;
+    int next, i;
 	Q_OBJECT
 public:
     CLIClass(int, char **b, QObject*par=nullptr);
