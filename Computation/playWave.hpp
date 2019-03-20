@@ -29,6 +29,8 @@ public:
 	// 1 - playing
 	// 2 - paused (and can be resumed)
 	int getPlayerState() const;
+public slots:
+    void onThreadFinish();
 signals:
 	// the code which uses this class for playing music
 	// SHOULD connect to this signal. This signal is emitted
@@ -41,6 +43,7 @@ signals:
 	//  5 - failed to start playing - file not found
 	//  6 - failed to start playing - wrong file format
 	//  7 - failed to start playing - file format is not supported
+        //  15 - serious internal problems
 	void playerReport( int status);
 };
 

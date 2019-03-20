@@ -18,7 +18,7 @@ struct _FMTsubChunkStruct {
     uint16_t format;
     uint16_t chanNum;
     uint32_t sampleRate;
-    uint32_t bytRate;
+    uint32_t byteRate;
     uint16_t blockAlign;
     uint16_t bpS;
 };
@@ -38,11 +38,23 @@ WavePlayer::WavePlayer(QObject * par) : QObject(par), activeFileName("")
     , isPlaying(false) , isPaused(false), playerThread(this)
 {
 // TODO
+    connect(&playerThread, SIGNAL(doneWork()), this, SLOT(onThreadFinish()));
 }
 
 WavePlayer::~WavePlayer()
 {
 // TODO
+    if(isPlaying) {
+        playerThread.setEnabled(false);
+    }
+    int counter = 100;
+    while(counter-- > 0 && isPlaying) {
+        Sleep(10);
+    }
+    if(isPlaying) {
+        // there's a problem somewhere
+    }
+    // DONE
 }
 
 int WavePlayer::getPlayerState() const
@@ -59,6 +71,20 @@ int WavePlayer::getPlayerState() const
 void WavePlayer::playMusic(std::string filePath)
 {
     // TODO
+    // Are we playing something already?
+    // if so, first let's force file to exit
+    if( isPlaying) {
+        playerThread.setEnabled(false);
+    }
+    // now slot on finish should execute
+    int counter = 100;
+    while(counter-- > 0 && isPlaying) {
+        Sleep(10);
+    }
+    if(isPlaying) {
+        emit playerReport( 15);
+        return;
+    }
     struct wavHeaderStruct wv;
     struct _FMTsubChunkStruct fmt;
     struct _DatasubChunkHeaderStruct dataHdr;
@@ -102,14 +128,38 @@ void WavePlayer::playMusic(std::string filePath)
         emit playerReport( 7);
         return;
     }
+    WAVEFORMATEX wfx;
+    wfx.nSamplesPerSec =  fmt.sampleRate; /* sample rate */
+    wfx.wBitsPerSample = fmt.bpS; /* sample size */
+    wfx.nChannels = fmt.chanNum; /* channels*/
+    wfx.cbSize = 0; /* size of _extra_ info */
+    wfx.wFormatTag = fmt.format;
+    wfx.nBlockAlign = fmt.blockAlign;
+    wfx.nAvgBytesPerSec = fmt.byteRate;
+
+    if( playerThread.openAudio(wfx)) {
+        fclose( fin);
+        emit playerReport( 7);
+        return;
+    }
     playerThread.setFile(fin);
+    playerThread.setEnabled();
     playerThread.setLength(dataHdr.len);
-    playerThread.start();
-        std::cout << "the music is playing ..." << std::endl;
+
     // if everything started well,
     isPlaying = true;
+    playerThread.start();
+    std::cout << "the music is playing ..." << std::endl;
+
+    // close file when thread reports it's done
 }
 
+void WavePlayer::onThreadFinish()
+{
+    isPlaying = false;
+    std::cout<<"play thread complete music file"<<std::endl;
+    emit playerReport(4);
+}
 
 void WavePlayer::stopPlaying()
 {
@@ -119,6 +169,7 @@ void WavePlayer::stopPlaying()
     isPaused = false;
     if(isPlaying) {
         // TODO stop playing. clear objects
+        playerThread.setEnabled(false);
     }
     std::cout << "the music is stop!" << std::endl;
 }

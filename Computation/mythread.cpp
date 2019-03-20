@@ -1,5 +1,6 @@
 #include "mythread.h"
 #include <mmsystem.h>
+#include <iostream>
 
 /* some good values for block size and count */
 #define BLOCK_SIZE 8192
@@ -16,6 +17,9 @@ static CRITICAL_SECTION waveCriticalSection;
 static WAVEHDR* waveBlocks;
 static volatile int waveFreeBlockCount;
 static int waveCurrentBlock;
+static void CALLBACK waveOutProc(HWAVEOUT, UINT, DWORD, DWORD, DWORD);
+void freeBlocks(WAVEHDR* blockArray);
+
 
 
 void writeAudio(HWAVEOUT hWaveOut, LPSTR data, int size)
@@ -59,9 +63,54 @@ void writeAudio(HWAVEOUT hWaveOut, LPSTR data, int size)
     }
 }
 
+
+WAVEHDR* allocateBlocks(int size, int count)
+{
+	unsigned char* buffer;
+	int i;
+	WAVEHDR* blocks;
+	DWORD totalBufferSize = (size + sizeof(WAVEHDR)) * count;
+	/*
+	* allocate memory for the entire set in one go
+	*/
+	if ((buffer = (unsigned char*)HeapAlloc(
+		GetProcessHeap(),
+		HEAP_ZERO_MEMORY,
+		totalBufferSize
+	)) == NULL) {
+		fprintf(stderr, "Memory allocation error\n");
+		ExitProcess(1);
+	}
+	/*
+	* and set up the pointers to each bit
+	*/
+	blocks = (WAVEHDR*)buffer;
+	buffer += sizeof(WAVEHDR) * count;
+	for (i = 0; i < count; i++) {
+		blocks[i].dwBufferLength = size;
+		blocks[i].lpData = (LPSTR)buffer;
+		buffer += size;
+	}
+	return blocks;
+}
+
+
+bool MyThread::openAudio(WAVEFORMATEX & wfx)
+{
+    return (waveOutOpen( &hWave, WAVE_MAPPER,
+            &wfx, (DWORD_PTR)waveOutProc,
+            (DWORD_PTR)&waveFreeBlockCount, CALLBACK_FUNCTION
+        ) != MMSYSERR_NOERROR);
+}
+
 void MyThread::run()
 {
+    waveBlocks = allocateBlocks(BLOCK_SIZE, BLOCK_COUNT);
+    waveFreeBlockCount = BLOCK_COUNT;
+    waveCurrentBlock = 0;
+    InitializeCriticalSection(&waveCriticalSection);
     char buffer[1024];
+    std::cout<<"Entered run with canGoOn=="<<canGoOn<<std::endl;
     while(canGoOn ) {
         size_t readBytes = fread(buffer, 1, 1024, f);
         if (readBytes == 0)
@@ -73,36 +122,22 @@ void MyThread::run()
         }
         writeAudio(hWave, buffer, sizeof(buffer));
     }
-}
-
-WAVEHDR* allocateBlocks(int size, int count)
-{
-    unsigned char* buffer;
-    int i;
-    WAVEHDR* blocks;
-    DWORD totalBufferSize = (size + sizeof(WAVEHDR)) * count;
+    while (waveFreeBlockCount < BLOCK_COUNT)
+            Sleep(10);
     /*
-    * allocate memory for the entire set in one go
+    * unprepare any blocks that are still prepared
     */
-    if ((buffer = (unsigned char*)HeapAlloc(
-        GetProcessHeap(),
-        HEAP_ZERO_MEMORY,
-        totalBufferSize
-    )) == NULL) {
-        fprintf(stderr, "Memory allocation error\n");
-        ExitProcess(1);
-    }
-    /*
-    * and set up the pointers to each bit
-    */
-    blocks = (WAVEHDR*)buffer;
-    buffer += sizeof(WAVEHDR) * count;
-    for (i = 0; i < count; i++) {
-        blocks[i].dwBufferLength = size;
-        blocks[i].lpData = (LPSTR) buffer;
-        buffer += size;
-    }
-    return blocks;
+    for (int i = 0; i < waveFreeBlockCount; i++)
+            if (waveBlocks[i].dwFlags & WHDR_PREPARED)
+                    waveOutUnprepareHeader(hWave, &waveBlocks[i], sizeof(WAVEHDR));
+    DeleteCriticalSection(&waveCriticalSection);
+    freeBlocks(waveBlocks);
+    waveOutClose(hWave);
+    hWave = nullptr;
+	fclose(f);
+	f = nullptr;
+    std::cout<<"Right before quiting RUN method"<<std::endl;
+    emit doneWork();
 }
 
 void freeBlocks(WAVEHDR* blockArray)
