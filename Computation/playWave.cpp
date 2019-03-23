@@ -68,7 +68,7 @@ int WavePlayer::getPlayerState() const
     return 0;
 }
 
-void WavePlayer::playMusic(std::string filePath)
+bool WavePlayer::playMusic(std::string filePath)
 {
     // TODO
     // Are we playing something already?
@@ -83,7 +83,7 @@ void WavePlayer::playMusic(std::string filePath)
     }
     if(isPlaying) {
         emit playerReport( 15);
-        return;
+        return false;
     }
     struct wavHeaderStruct wv;
     struct _FMTsubChunkStruct fmt;
@@ -91,7 +91,7 @@ void WavePlayer::playMusic(std::string filePath)
     FILE * fin = fopen( filePath.c_str(),"rb");
     if( fin == nullptr) {
         emit playerReport( 5);
-        return;
+        return false;
     }
     // if it's WAV file, first 12 bytes should be
     // of pre-defined form:
@@ -99,34 +99,34 @@ void WavePlayer::playMusic(std::string filePath)
     if( rv != 1 ) {
         fclose( fin);
         emit playerReport( 6);
-        return;
+        return false;
     }
     if(wv.riff != RIFF  || wv.wave != WAVE ) {
         fclose( fin);
         emit playerReport( 7);
-        return;
+        return false;
     }
     rv = fread(&fmt, sizeof(struct _FMTsubChunkStruct), 1, fin);
     if( rv != 1 ) {
         fclose( fin);
         emit playerReport( 6);
-        return;
+        return false;
     }
     if(fmt.id != FMT || fmt.size != 16) {
         fclose( fin);
         emit playerReport( 7);
-        return;
+        return false;
     }
     rv = fread(&dataHdr, sizeof(struct _DatasubChunkHeaderStruct), 1, fin);
     if( rv != 1 ) {
         fclose( fin);
         emit playerReport( 6);
-        return;
+        return false;
     }
     if(dataHdr.id != DATA ) {
         fclose( fin);
         emit playerReport( 7);
-        return;
+        return false;
     }
     WAVEFORMATEX wfx;
     wfx.nSamplesPerSec =  fmt.sampleRate; /* sample rate */
@@ -140,7 +140,7 @@ void WavePlayer::playMusic(std::string filePath)
     if( playerThread.openAudio(wfx)) {
         fclose( fin);
         emit playerReport( 7);
-        return;
+        return false;
     }
     playerThread.setFile(fin);
     playerThread.setEnabled();
@@ -150,7 +150,7 @@ void WavePlayer::playMusic(std::string filePath)
     isPlaying = true;
     playerThread.start();
     std::cout << "the music is playing ..." << std::endl;
-
+    return isPlaying;
     // close file when thread reports it's done
 }
 

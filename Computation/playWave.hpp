@@ -17,7 +17,7 @@ public:
     WavePlayer(QObject * par);
 	~WavePlayer();
 
-        void playMusic(std::string filePath);
+        bool playMusic(std::string filePath);
 	void stopPlaying();
 	// same call is used for pause/resume
 	// set argument to false to resume playback

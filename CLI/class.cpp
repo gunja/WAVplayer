@@ -22,6 +22,10 @@ void CLIClass::run()
         kernel->playMusic(std::string(argv[i]));
         ++i;
 	}
+	else {
+		std::cout << "Playlist is empty" << std::endl;
+		emit finished();
+	}
 }
 
 void CLIClass::onPlayerReport(int repVal)

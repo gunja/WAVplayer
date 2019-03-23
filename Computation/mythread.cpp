@@ -3,7 +3,8 @@
 #include <iostream>
 
 /* some good values for block size and count */
-#define BLOCK_SIZE 8192
+#define SAMPLES_PER_BLOCK 200
+int g_blockAlign;
 #define BLOCK_COUNT 20
 
 MyThread::MyThread(QObject * _parent): QThread(_parent), parent(_parent)
@@ -33,16 +34,16 @@ void writeAudio(HWAVEOUT hWaveOut, LPSTR data, int size)
         */
         if (current->dwFlags & WHDR_PREPARED)
             waveOutUnprepareHeader(hWaveOut, current, sizeof(WAVEHDR));
-        if (size < (int)(BLOCK_SIZE - current->dwUser)) {
+        if (size < (int)((SAMPLES_PER_BLOCK * g_blockAlign) - current->dwUser)) {
             memcpy(current->lpData + current->dwUser, data, size);
             current->dwUser += size;
             break;
         }
-        remain = BLOCK_SIZE - current->dwUser;
+        remain = (SAMPLES_PER_BLOCK * g_blockAlign) - current->dwUser;
         memcpy(current->lpData + current->dwUser, data, remain);
         size -= remain;
         data += remain;
-        current->dwBufferLength = BLOCK_SIZE;
+        current->dwBufferLength = (SAMPLES_PER_BLOCK * g_blockAlign);
         waveOutPrepareHeader(hWaveOut, current, sizeof(WAVEHDR));
         waveOutWrite(hWaveOut, current, sizeof(WAVEHDR));
         EnterCriticalSection(&waveCriticalSection);
@@ -97,6 +98,7 @@ WAVEHDR* allocateBlocks(int size, int count)
 
 bool MyThread::openAudio(WAVEFORMATEX & wfx)
 {
+    g_blockAlign = wfx.nBlockAlign;
     return (waveOutOpen( &hWave, WAVE_MAPPER,
             &wfx, (DWORD_PTR)waveOutProc,
             (DWORD_PTR)&waveFreeBlockCount, CALLBACK_FUNCTION
@@ -105,7 +107,7 @@ bool MyThread::openAudio(WAVEFORMATEX & wfx)
 
 void MyThread::run()
 {
-    waveBlocks = allocateBlocks(BLOCK_SIZE, BLOCK_COUNT);
+    waveBlocks = allocateBlocks(SAMPLES_PER_BLOCK * g_blockAlign, BLOCK_COUNT);
     waveFreeBlockCount = BLOCK_COUNT;
     waveCurrentBlock = 0;
     InitializeCriticalSection(&waveCriticalSection);

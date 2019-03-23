@@ -1,8 +1,43 @@
 #include <Windows.h>
 #include <mmsystem.h>
 #include <stdio.h>
+#include <stdint.h>
+
+
+#pragma pack(push, 1)
+struct wavHeaderStruct {
+	uint32_t riff;
+	uint32_t chunkSize;
+	uint32_t wave;
+
+};
+
+struct _FMTsubChunkStruct {
+	uint32_t id;
+	uint32_t size;
+	uint16_t format;
+	uint16_t chanNum;
+	uint32_t sampleRate;
+	uint32_t byteRate;
+	uint16_t blockAlign;
+	uint16_t bpS;
+};
+
+struct _DatasubChunkHeaderStruct {
+	uint32_t id;
+	uint32_t len;
+};
+#pragma pack( pop)
+
+#define RIFF 0x46464952
+#define WAVE 0x45564157
+#define FMT 0x20746d66
+#define DATA 0x61746164
+
 /* some good values for block size and count */
-#define BLOCK_SIZE 8192
+//#define BLOCK_SIZE 32768
+#define SAMPLES_PER_BLOCK 200
+int g_blockAlign;
 #define BLOCK_COUNT 20
 /* function prototypes */
 static void CALLBACK waveOutProc(HWAVEOUT, UINT, DWORD, DWORD, DWORD);
@@ -21,6 +56,10 @@ int main(int argc, char* argv[])
 	WAVEFORMATEX wfx; /* look this up in your documentation */
 	char buffer[1024]; /* intermediate buffer for reading */
 	int i;
+	wavHeaderStruct hdr;
+	_FMTsubChunkStruct fmt;
+	_DatasubChunkHeaderStruct dt;
+	DWORD readBytes;
 	/*
 	* quick argument check
 	*/
@@ -31,9 +70,7 @@ int main(int argc, char* argv[])
 	/*
 	* initialise the module variables
 	*/
-	waveBlocks = allocateBlocks(BLOCK_SIZE, BLOCK_COUNT);
-	waveFreeBlockCount = BLOCK_COUNT;
-	waveCurrentBlock = 0;
+
 	InitializeCriticalSection(&waveCriticalSection);
 	/*
 	* try and open the file
@@ -43,17 +80,42 @@ int main(int argc, char* argv[])
 		fprintf(stderr, "%s: unable to open file '%s'\n", argv[0], argv[1]);
 		ExitProcess(1);
 	}
+
+	BOOL val = ReadFile(hFile, &hdr, sizeof(wavHeaderStruct), &readBytes, NULL);
+	if (hdr.wave != WAVE || hdr.riff != RIFF) {
+		fprintf(stderr, "Header mismatch\n");
+		ExitProcess(1);
+	} else{ fprintf(stderr, "Chunk size %d\n", hdr.chunkSize ); }
+
+	val = ReadFile(hFile, &fmt, sizeof(_FMTsubChunkStruct), &readBytes, NULL);
+	if (fmt.id != FMT) {
+		fprintf(stderr, "FMT header mismatch\n");
+		ExitProcess(1);
+	}
+	else { fprintf(stderr, "FMT size %d\n", fmt.size); }
+
+	val = ReadFile(hFile, &dt, sizeof(_DatasubChunkHeaderStruct), &readBytes, NULL);
+	if (dt.id != DATA) {
+		fprintf(stderr, "FMT header mismatch\n");
+		ExitProcess(1);
+	}
+	else { fprintf(stderr, "Data size %d\n", dt.len); }
 	/*
 	* set up the WAVEFORMATEX structure.
 	*/
 	//wfx.nSamplesPerSec = 44100; /* sample rate */
-	wfx.nSamplesPerSec = 22050; /* sample rate */
-	wfx.wBitsPerSample = 16; /* sample size */
-	wfx.nChannels = 1; /* channels*/
+	wfx.nSamplesPerSec = fmt.sampleRate; /* sample rate */
+	wfx.wBitsPerSample = fmt.bpS; /* sample size */
+	wfx.nChannels = fmt.chanNum; /* channels*/
 	wfx.cbSize = 0; /* size of _extra_ info */
-	wfx.wFormatTag = WAVE_FORMAT_PCM;
-	wfx.nBlockAlign = (wfx.wBitsPerSample * wfx.nChannels) >> 3;
-	wfx.nAvgBytesPerSec = wfx.nBlockAlign * wfx.nSamplesPerSec;
+	wfx.wFormatTag = fmt.format;
+	wfx.nBlockAlign = fmt.blockAlign;
+	wfx.nAvgBytesPerSec = fmt.byteRate;
+
+	g_blockAlign = wfx.nBlockAlign;
+	waveBlocks = allocateBlocks(SAMPLES_PER_BLOCK * g_blockAlign, BLOCK_COUNT);
+	waveFreeBlockCount = BLOCK_COUNT;
+	waveCurrentBlock = 0;
 	/*
 	* try to open the default wave device. WAVE_MAPPER is
 	* a constant defined in mmsystem.h, it always points to the
@@ -75,7 +137,7 @@ int main(int argc, char* argv[])
 	* playback loop
 	*/
 	while (1) {
-		DWORD readBytes;
+		
 		if (!ReadFile(hFile, buffer, sizeof(buffer), &readBytes, NULL))
 			break;
 		if (readBytes == 0)
@@ -116,16 +178,16 @@ void writeAudio(HWAVEOUT hWaveOut, LPSTR data, int size)
 		*/
 		if (current->dwFlags & WHDR_PREPARED)
 			waveOutUnprepareHeader(hWaveOut, current, sizeof(WAVEHDR));
-		if (size < (int)(BLOCK_SIZE - current->dwUser)) {
+		if (size < (int)((SAMPLES_PER_BLOCK * g_blockAlign) - current->dwUser)) {
 			memcpy(current->lpData + current->dwUser, data, size);
 			current->dwUser += size;
 			break;
 		}
-		remain = BLOCK_SIZE - current->dwUser;
+		remain = (SAMPLES_PER_BLOCK * g_blockAlign) - current->dwUser;
 		memcpy(current->lpData + current->dwUser, data, remain);
 		size -= remain;
 		data += remain;
-		current->dwBufferLength = BLOCK_SIZE;
+		current->dwBufferLength = (SAMPLES_PER_BLOCK * g_blockAlign);
 		waveOutPrepareHeader(hWaveOut, current, sizeof(WAVEHDR));
 		waveOutWrite(hWaveOut, current, sizeof(WAVEHDR));
 		EnterCriticalSection(&waveCriticalSection);
