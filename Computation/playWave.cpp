@@ -68,7 +68,7 @@ int WavePlayer::getPlayerState() const
     return 0;
 }
 
-bool WavePlayer::playMusic(std::string filePath)
+bool WavePlayer::playMusic(const std::list<__sourceDefine>&sources)
 {
     // TODO
     // Are we playing something already?

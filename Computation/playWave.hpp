@@ -5,6 +5,7 @@
 #include <fstream>
 #include <QObject>
 #include "mythread.h"
+#include "interleave.h"
 
 class WavePlayer: public QObject
 {
@@ -17,7 +18,7 @@ public:
     WavePlayer(QObject * par);
 	~WavePlayer();
 
-        bool playMusic(std::string filePath);
+        bool playMusic(const std::list<__sourceDefine>&);
 	void stopPlaying();
 	// same call is used for pause/resume
 	// set argument to false to resume playback

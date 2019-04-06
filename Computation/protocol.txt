@@ -1,0 +1,24 @@
+It's expected that server will support the following
+protocol (at least for sending file data):
+
+message formats:
+REQUEST:
+[ requestType ] - 1 byte
+..... other bytes are dependent on request type.
+
+requestType == 0xAA - request for file data portion
+Full request format:
+[requestType ] - 1 byte == 0xAA
+[fileId      ] - 4 bytes, network byte order, uint32_t. Value returned 
+                by server previously in association with some filename
+[offsetValue]  - 4 bytes, network byte order, uint32_t. Offset in file, starting from which file data should be read. Counted from 0 (see for example fseek calls)
+[countValue ] - 4 bytes, network byte order. uint32_t. How many bytes requested to be transmitted
+
+request with type == 0xAA is expecting reply in the following format:
+[ replyType] - 1 byte. 0xAB for reply to 0xAA
+[ status ] - 1 byte.    0 - command OK
+                        1 - file with fileId not known to server
+                        2 - file length is less than offsetValue
+                        ... other cases
+[ dataLength ] - 4 bytes. network byte order. uint32_t. How many bytes follow this field. Valid only if status is 0
+[ data ] - for length see previous field. Valid only if status == 0
