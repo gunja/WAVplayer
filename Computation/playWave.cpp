@@ -1,6 +1,10 @@
 #include "playWave.hpp"
+#if defined (_WIN32 ) || defined (_WIN64)
 #include <Windows.h>
 #include <mmsystem.h>
+#else
+    #include <unistd.h>
+#endif
 #include <stdio.h>
 #include <stdint.h>
 
@@ -49,7 +53,11 @@ WavePlayer::~WavePlayer()
     }
     int counter = 100;
     while(counter-- > 0 && isPlaying) {
+#if defined (_WIN32 ) || defined (_WIN64)
         Sleep(10);
+#else
+        usleep( 10000);
+#endif
     }
     if(isPlaying) {
         // there's a problem somewhere
@@ -68,6 +76,17 @@ int WavePlayer::getPlayerState() const
     return 0;
 }
 
+//bool WavePlayer::playMusic(const std::list<__sourceDefine>&sources)
+bool WavePlayer::playMusic(const std::string &filePath)
+{
+    std::list<__sourceDefine> ll;
+    __sourceDefine rc;
+    rc.srcType = __sourceDefine::LOCAL;
+    rc.path = QString(filePath.c_str());
+    ll.push_back(rc);
+    return playMusic(ll);
+}
+
 bool WavePlayer::playMusic(const std::list<__sourceDefine>&sources)
 {
     // TODO
@@ -79,7 +98,11 @@ bool WavePlayer::playMusic(const std::list<__sourceDefine>&sources)
     // now slot on finish should execute
     int counter = 100;
     while(counter-- > 0 && isPlaying) {
+#if defined (_WIN32 ) || defined (_WIN64)
         Sleep(10);
+#else
+        usleep(10000);
+#endif
     }
     if(isPlaying) {
         emit playerReport( 15);
@@ -88,46 +111,55 @@ bool WavePlayer::playMusic(const std::list<__sourceDefine>&sources)
     struct wavHeaderStruct wv;
     struct _FMTsubChunkStruct fmt;
     struct _DatasubChunkHeaderStruct dataHdr;
-    FILE * fin = fopen( filePath.c_str(),"rb");
-    if( fin == nullptr) {
-        emit playerReport( 5);
-        return false;
-    }
+    bufferedStream * bufIn = new bufferedStream(this);
+    bufIn->setSources(sources);
+    //FILE * fin = fopen( filePath.c_str(),"rb");
+    //if( fin == nullptr) {
+    //    emit playerReport( 5);
+    //    return false;
+    //}
     // if it's WAV file, first 12 bytes should be
     // of pre-defined form:
-    size_t rv = fread(&wv, sizeof(struct wavHeaderStruct), 1, fin);
+    size_t rv = bufIn->fread(&wv, sizeof(struct wavHeaderStruct), 1);
     if( rv != 1 ) {
-        fclose( fin);
+        //fclose( fin);
+        delete bufIn;
         emit playerReport( 6);
         return false;
     }
     if(wv.riff != RIFF  || wv.wave != WAVE ) {
-        fclose( fin);
+        //fclose( fin);
+        delete bufIn;
         emit playerReport( 7);
         return false;
     }
-    rv = fread(&fmt, sizeof(struct _FMTsubChunkStruct), 1, fin);
+    rv = bufIn->fread(&fmt, sizeof(struct _FMTsubChunkStruct), 1);
     if( rv != 1 ) {
-        fclose( fin);
+        //fclose( fin);
+        delete bufIn;
         emit playerReport( 6);
         return false;
     }
     if(fmt.id != FMT || fmt.size != 16) {
-        fclose( fin);
+        //fclose( fin);
+        delete bufIn;
         emit playerReport( 7);
         return false;
     }
-    rv = fread(&dataHdr, sizeof(struct _DatasubChunkHeaderStruct), 1, fin);
+    rv = bufIn->fread(&dataHdr, sizeof(struct _DatasubChunkHeaderStruct), 1);
     if( rv != 1 ) {
-        fclose( fin);
+        //fclose( fin);
+        delete bufIn;
         emit playerReport( 6);
         return false;
     }
     if(dataHdr.id != DATA ) {
-        fclose( fin);
+        //fclose( fin);
+        delete bufIn;
         emit playerReport( 7);
         return false;
     }
+#if defined (_WIN32 ) || defined (_WIN64)
     WAVEFORMATEX wfx;
     wfx.nSamplesPerSec =  fmt.sampleRate; /* sample rate */
     wfx.wBitsPerSample = fmt.bpS; /* sample size */
@@ -138,11 +170,14 @@ bool WavePlayer::playMusic(const std::list<__sourceDefine>&sources)
     wfx.nAvgBytesPerSec = fmt.byteRate;
 
     if( playerThread.openAudio(wfx)) {
-        fclose( fin);
+        //fclose( fin);
+        delete bufIn;
         emit playerReport( 7);
         return false;
     }
-    playerThread.setFile(fin);
+#endif
+    //playerThread.setFile(fin);
+    playerThread.setBuffer(bufIn);
     playerThread.setEnabled();
     playerThread.setLength(dataHdr.len);
 

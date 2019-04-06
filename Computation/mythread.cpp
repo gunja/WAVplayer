@@ -1,5 +1,7 @@
 #include "mythread.h"
+#if defined (_WIN32 ) || defined ( _WIN64 )
 #include <mmsystem.h>
+#endif
 #include <iostream>
 
 /* some good values for block size and count */
@@ -8,21 +10,27 @@ int g_blockAlign;
 #define BLOCK_COUNT 20
 
 MyThread::MyThread(QObject * _parent): QThread(_parent), parent(_parent)
-  , f(nullptr), Len(0), hWave(nullptr), canGoOn(false)
+  , f(nullptr), Len(0)
+#if defined (_WIN32 ) || defined ( _WIN64 )
+, hWave(nullptr)
+#endif
+, canGoOn(false)
+, stream( nullptr)
 {
     // TODO compelete is something else is needed
 }
 
 /* module level variables */
+#if defined (_WIN32 ) || defined ( _WIN64 )
 static CRITICAL_SECTION waveCriticalSection;
 static WAVEHDR* waveBlocks;
 static volatile int waveFreeBlockCount;
 static int waveCurrentBlock;
 static void CALLBACK waveOutProc(HWAVEOUT, UINT, DWORD, DWORD, DWORD);
 void freeBlocks(WAVEHDR* blockArray);
+#endif
 
-
-
+#if defined (_WIN32 ) || defined ( _WIN64 )
 void writeAudio(HWAVEOUT hWaveOut, LPSTR data, int size)
 {
     WAVEHDR* current;
@@ -63,8 +71,9 @@ void writeAudio(HWAVEOUT hWaveOut, LPSTR data, int size)
         current->dwUser = 0;
     }
 }
+#endif
 
-
+#if defined (_WIN32 ) || defined ( _WIN64 )
 WAVEHDR* allocateBlocks(int size, int count)
 {
 	unsigned char* buffer;
@@ -94,8 +103,9 @@ WAVEHDR* allocateBlocks(int size, int count)
 	}
 	return blocks;
 }
+#endif
 
-
+#if defined (_WIN32 ) || defined ( _WIN64 )
 bool MyThread::openAudio(WAVEFORMATEX & wfx)
 {
     g_blockAlign = wfx.nBlockAlign;
@@ -104,17 +114,25 @@ bool MyThread::openAudio(WAVEFORMATEX & wfx)
             (DWORD_PTR)&waveFreeBlockCount, CALLBACK_FUNCTION
         ) != MMSYSERR_NOERROR);
 }
+#endif
 
 void MyThread::run()
 {
+#if defined (_WIN32 ) || defined ( _WIN64 )
     waveBlocks = allocateBlocks(SAMPLES_PER_BLOCK * g_blockAlign, BLOCK_COUNT);
     waveFreeBlockCount = BLOCK_COUNT;
     waveCurrentBlock = 0;
     InitializeCriticalSection(&waveCriticalSection);
+#endif
     char buffer[1024];
     std::cout<<"Entered run with canGoOn=="<<canGoOn<<std::endl;
     while(canGoOn ) {
-        size_t readBytes = fread(buffer, 1, 1024, f);
+        size_t readBytes;
+        if( f!= nullptr)
+            readBytes = fread(buffer, 1, 1024, f);
+        else if (stream != nullptr) {
+            readBytes = stream->fread(buffer, 1, 1024);
+        }
         if (readBytes == 0)
             break;
         if (readBytes < sizeof(buffer)) {
@@ -122,13 +140,14 @@ void MyThread::run()
             memset(buffer + readBytes, 0, sizeof(buffer) - readBytes);
             printf("after memcpy\n");
         }
+#if defined (_WIN32 ) || defined ( _WIN64 )
         writeAudio(hWave, buffer, sizeof(buffer));
+#endif
     }
+#if defined (_WIN32 ) || defined ( _WIN64 )
     while (waveFreeBlockCount < BLOCK_COUNT)
             Sleep(10);
-    /*
-    * unprepare any blocks that are still prepared
-    */
+    /* unprepare any blocks that are still prepared */
     for (int i = 0; i < waveFreeBlockCount; i++)
             if (waveBlocks[i].dwFlags & WHDR_PREPARED)
                     waveOutUnprepareHeader(hWave, &waveBlocks[i], sizeof(WAVEHDR));
@@ -136,12 +155,21 @@ void MyThread::run()
     freeBlocks(waveBlocks);
     waveOutClose(hWave);
     hWave = nullptr;
-	fclose(f);
+#endif
+    if( f != nullptr) {
+        fclose(f);
+        f = nullptr;
+    }
+    if( stream != nullptr) {
+        delete stream;
+        stream = nullptr;
+    }
 	f = nullptr;
     std::cout<<"Right before quiting RUN method"<<std::endl;
     emit doneWork();
 }
 
+#if defined (_WIN32 ) || defined ( _WIN64 )
 void freeBlocks(WAVEHDR* blockArray)
 {
     /*
@@ -162,3 +190,5 @@ static void CALLBACK waveOutProc(HWAVEOUT hWaveOut, UINT uMsg
         (*freeBlockCounter)++;
     LeaveCriticalSection(&waveCriticalSection);
 }
+#endif
+

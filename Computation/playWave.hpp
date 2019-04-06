@@ -15,10 +15,11 @@ class WavePlayer: public QObject
    bool isPaused;
    MyThread playerThread;
 public:
-    WavePlayer(QObject * par);
+    WavePlayer(QObject * par= nullptr);
 	~WavePlayer();
 
-        bool playMusic(const std::list<__sourceDefine>&);
+    bool playMusic(const std::list<__sourceDefine>&);
+    bool playMusic(const std::string&);
 	void stopPlaying();
 	// same call is used for pause/resume
 	// set argument to false to resume playback
