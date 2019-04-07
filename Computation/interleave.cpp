@@ -76,7 +76,7 @@ qint64 multiPointReceiver::getDataToBufferFromOffset(char * dest, size_t maxSize
     (*ita)->BytesNeed += (maxSize - parConnectionSize*remotesCount);
     std::list <ThreadedSocketRead*> threadsList;
     for( auto itt: tsks) {
-        auto n = new ThreadedSocketRead( itt, this);
+        auto n = new ThreadedSocketRead( itt, nullptr);
         threadsList.push_back( n);
         n->start();
     }
@@ -129,17 +129,12 @@ qint64 multiPointReceiver::getObjectSize()
         quint8 v= PROTO_RQ_SIZE;
         ds<<v;
         ds<<it->remoteId;
-        qDebug()<<"sending QByteArray "<<ba;
+        //qDebug()<<"sending QByteArray "<<ba;
         ba.resize(5);
         qint64 actWr = c->write(ba);
         c->flush();
-        qDebug()<<"actually written"<<actWr;
+        //qDebug()<<"actually written"<<actWr;
         //c->waitForReadyRead();
-        //char tmpBuff[200];
-        //QByteArray rv = c->read();
-        //actWr = c->readData( tmpBuff, 200);
-        //qDebug()<<"Readd Data returned "<<actWr;
-        //QByteArray rv( tmpBuff);
         qint8 type, status;
         quint32 fileS;
         QDataStream dO(c);
@@ -166,7 +161,7 @@ qint64 multiPointReceiver::getObjectSize()
 
 void ThreadedSocketRead::run()
 {
-    QTcpSocket *c = new QTcpSocket(this);
+    QTcpSocket *c = new QTcpSocket(nullptr);
     c->connectToHost(task->path, task->port);
     const int Timeout = 5 * 1000;
         if (!c->waitForConnected(Timeout)) {
@@ -182,11 +177,11 @@ void ThreadedSocketRead::run()
         ds<<task->remoteId;
         ds<<task->offset;
         ds<<task->BytesNeed;
-        qDebug()<<"sending QByteArray "<<ba;
+        //qDebug()<<"sending QByteArray "<<ba;
         ba.resize(13);
         qint64 actWr = c->write(ba);
         c->flush();
-        qDebug()<<"actually written"<<actWr;
+        //qDebug()<<"actually written"<<actWr;
         quint8 type, status;
         quint32 dataLen;
         QDataStream dO(c);
@@ -199,22 +194,23 @@ void ThreadedSocketRead::run()
             dO.startTransaction();
             dO >>type>>status;
         } while( !dO.commitTransaction());
-        qDebug()<<"Received type="<<type<<"  and status ="<<status;
+        //qDebug()<<"Received type="<<type<<"  and status ="<<status;
         if( type == (PROTO_RQ_DATA +1 ) && status == 0) 
         {
             dO>>dataLen;
-            qDebug()<<"Reading "<<dataLen<<"  from socket";
+            //qDebug()<<"Reading "<<dataLen<<"  from socket";
             qint64 doneBefore =0;
             qint64 v  = 1;
-            while(v > 0) {
+            while(doneBefore < dataLen ) {
+                c->waitForReadyRead(Timeout);
                 v = c->read( task->ptr + doneBefore, dataLen);
-                qDebug()<<"Actually got "<<v<<" bytes  from socket and was already ("<<doneBefore<<")";
+                //qDebug()<<"Actually got "<<v<<" bytes  from socket and was already ("<<doneBefore<<")";
                 doneBefore +=v;
             }
             c->abort();
             delete c;
-            if( v > 0) {
-                qDebug()<<"returning as actually done"<<doneBefore;
+            if( doneBefore > 0) {
+                //qDebug()<<"returning as actually done"<<doneBefore;
                 task->bytesDone = static_cast<int>( doneBefore);
             }
             return;

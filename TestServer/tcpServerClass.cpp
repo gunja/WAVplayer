@@ -5,6 +5,10 @@
 #include <QDataStream>
 #include <QDebug>
 
+#if defined ( _WIN32 ) || defined ( _WIN64 )
+#include <Windows.h>
+#endif
+
 TCPServerClass::TCPServerClass(int _port, const std::list<__FileRec> &fRs, QObject * par) :
     QObject(par), port(_port), dataBase(fRs)
 {
@@ -88,8 +92,13 @@ void TCPServerClass::slotReadClient()
                 in<<rqType;
                 mSize = static_cast<quint32>(rv);
                 in<<mSize;
-                in.writeRawData(buff, static_cast<int>(rv));
-                qDebug()<<"after call to writeRawData with rv="<<rv;
+                int done = 0;
+                while( done < rv) {
+                    int d = in.writeRawData(buff + done, static_cast<int>(rv - done));
+                    if ( d == 0) break;
+                    done +=d;
+                }
+                //qDebug()<<"after call to writeRawData with rv="<<rv<<" and cycled till done="<<done;
             }
             break;
         default:
@@ -99,6 +108,12 @@ void TCPServerClass::slotReadClient()
             in<<rqType;
             break;
     }
+    while(clientSocket->bytesToWrite() > 0)
+    {
+        clientSocket->flush();
+        //qDebug()<<"remained to write "<<clientSocket->bytesToWrite();
+        QThread::msleep(10);
+    };
     clientSocket->close();
     if(buff != nullptr) delete[] buff;
     SClients.remove(idusersocs);

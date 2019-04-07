@@ -32,14 +32,14 @@ size_t bufferedStream::fread(void *dst, int siz, int C)
         // how far are we from end of buffer?
         if( lastReadPosition > currentSize /2 ) {
             if( fetchThread == nullptr && ( ! resourceEndReached ) ) {
-                fetchThread = new buffUpdateThread(this);
+                fetchThread = new buffUpdateThread(nullptr);
                 fetchThread->setSources( lSrcs);
                 fetchThread->setOffset( lastUsedOffset);
                 connect( fetchThread, SIGNAL(exchangeData(char*, qint64)),
                     this, SLOT(appendDataToBuffer( char *, qint64)),
                 Qt::DirectConnection );
                 fetchThread->start();
-                qDebug()<<"just startedd to fetch new portion";
+                //qDebug()<<"just started to fetch new portion";
             }
         }
       mx.unlock();
@@ -74,7 +74,7 @@ bufferedStream::~bufferedStream()
 
 void bufferedStream::appendDataToBuffer( char * buffIn, qint64 bufSize)
 {
-    qDebug()<<"exchage in appendDataToBuffer just started with size "<<bufSize;
+    //qDebug()<<"exchange in appendDataToBuffer just started with size "<<bufSize;
     mx.lock();
         int newSize = currentSize - lastReadPosition + bufSize;
         char * buff2 = new char[newSize];
@@ -86,24 +86,24 @@ void bufferedStream::appendDataToBuffer( char * buffIn, qint64 bufSize)
         lastUsedOffset +=bufSize;
         lastReadPosition = 0;
         resourceEndReached = (bufSize < BUFF_DEF_SIZE );
-        qDebug()<<"resource completeness is "<<resourceEndReached;
+        //qDebug()<<"resource completeness is "<<resourceEndReached;
         fetchThread = nullptr;
-        qDebug()<<" Fetch thread just gave back data and new currSize"<<currentSize;
+        //qDebug()<<" Fetch thread just gave back data and new currSize"<<currentSize;
     mx.unlock();
 }
 
 void buffUpdateThread::run()
 {
-    qDebug()<<" Fetch thread started ";
+    //qDebug()<<" Fetch thread started ";
     char *Lbuffer = new char[BUFF_DEF_SIZE];
     multiPointReceiver mp( this);
     mp.setSources(lSrcs);
     qint64 r = mp.getDataToBufferFromOffset( Lbuffer, BUFF_DEF_SIZE, Offset);
     emit exchangeData(Lbuffer, r);
-    qDebug()<<"deleting buffer";
+    //qDebug()<<"deleting buffer";
     delete[] Lbuffer;
     this->deleteLater();
-    qDebug()<<"thread compelete existance";
+    //qDebug()<<"thread compelete existance";
     return;
 }
 
