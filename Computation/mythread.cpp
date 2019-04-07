@@ -20,6 +20,16 @@ MyThread::MyThread(QObject * _parent): QThread(_parent), parent(_parent)
     // TODO compelete is something else is needed
 }
 
+MyThread::~MyThread()
+{
+    if( stream != nullptr) {
+        qDebug()<<"trying to delete buffer";
+        delete stream;
+        qDebug()<<"done";
+        stream = nullptr;
+    }
+}
+
 /* module level variables */
 #if defined (_WIN32 ) || defined ( _WIN64 )
 static CRITICAL_SECTION waveCriticalSection;
@@ -127,12 +137,13 @@ void MyThread::run()
     char buffer[1024];
     std::cout<<"Entered run with canGoOn=="<<canGoOn<<std::endl;
     while(canGoOn ) {
-        size_t readBytes;
+        size_t readBytes=0;
         if( f!= nullptr)
             readBytes = fread(buffer, 1, 1024, f);
         else if (stream != nullptr) {
             readBytes = stream->fread(buffer, 1, 1024);
         }
+        qDebug()<<"just read "<<readBytes;
         if (readBytes == 0)
             break;
         if (readBytes < sizeof(buffer)) {
@@ -142,8 +153,10 @@ void MyThread::run()
         }
 #if defined (_WIN32 ) || defined ( _WIN64 )
         writeAudio(hWave, buffer, sizeof(buffer));
+        //qDebug()<<"just wrote some audio out";
 #endif
     }
+    qDebug()<<"got out out while canGoOn";
 #if defined (_WIN32 ) || defined ( _WIN64 )
     while (waveFreeBlockCount < BLOCK_COUNT)
             Sleep(10);
@@ -159,10 +172,6 @@ void MyThread::run()
     if( f != nullptr) {
         fclose(f);
         f = nullptr;
-    }
-    if( stream != nullptr) {
-        delete stream;
-        stream = nullptr;
     }
 	f = nullptr;
     std::cout<<"Right before quiting RUN method"<<std::endl;

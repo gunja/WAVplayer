@@ -22,6 +22,7 @@ class MyThread : public QThread
     bufferedStream * stream;
 public:
     MyThread(QObject * parent = nullptr);
+    ~MyThread();
     void setFile( FILE * _f ) { f = _f;}
     void setLength( uint32_t l) { Len = l;}
 #if defined (_WIN32 ) || defined (_WIN64)

@@ -20,7 +20,6 @@ void CLIClass::run()
     {
         std::cout<<"Starting playing "<<argv[i]<<std::endl;
         kernel->playMusic(std::string(argv[i]));
-        ++i;
 	}
 	else {
 		std::cout << "Playlist is empty" << std::endl;
@@ -30,7 +29,8 @@ void CLIClass::run()
 
 void CLIClass::onPlayerReport(int repVal)
 {
-    std::cout<<"Received from player thread value"<<repVal<<std::endl;
+    std::cout<<"Received from player thread value "<<repVal<<std::endl;
+    i++;
     if(i < argc) {
         run();
         return;
