@@ -7,7 +7,6 @@
 
 */
 
-#define BUFF_DEF_SIZE  50000
 
 #include <QObject>
 #include <cstddef>
@@ -21,7 +20,7 @@ class buffUpdateThread : public QThread {
     qint64 Offset;
     virtual void run() override;
     public:
-        buffUpdateThread( QObject * parent= nullptr) : QThread(parent) {}
+        buffUpdateThread( QObject * parent= nullptr) : QThread(nullptr) {}
     void setSources(const std::list<struct __sourceDefine>&sources)
         {lSrcs = sources;}
     void setOffset( qint64 off) { Offset = off;}

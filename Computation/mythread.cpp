@@ -143,7 +143,7 @@ void MyThread::run()
         else if (stream != nullptr) {
             readBytes = stream->fread(buffer, 1, 1024);
         }
-        qDebug()<<"just read "<<readBytes;
+        //qDebug()<<"just read "<<readBytes;
         if (readBytes == 0)
             break;
         if (readBytes < sizeof(buffer)) {

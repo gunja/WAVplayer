@@ -10,7 +10,7 @@ int main( int argc, char *argv[] )
 
 
     QCoreApplication a( argc, argv );
-    QCoreApplication::setApplicationName("interleaviing-test");
+    QCoreApplication::setApplicationName("interleaving-test");
     QCoreApplication::setApplicationVersion("1.0");
     QCoreApplication::addLibraryPath("./plugins");
     QTextCodec::setCodecForLocale(QTextCodec::codecForName("GB2312"));

@@ -1,0 +1,61 @@
+1) simple tests of direct reads (that functionality similar to previous remains):
+
+cli -f path_to_wav_file -f path_to_wav_file -f path_to_wav_file
+
+2) test of usage with servers:
+2.1) create folder "Servers"
+2.2) copy build application "TestServer" to created folder
+2.3) copy  Qt5Cored.dll Qt5Guid.dll  Qt5Networkd.dll  Qt5Widgetsd.dll   libraries from Qt
+	installation directory
+2.4) copy music files to the same folder
+	heartache.wav
+	numb.wav
+	ZenZenZense.wav
+2.5) create start scripts:
+	args65400.txt
+123  heartache.wav
+200  numb.wav
+300  ZenZenZense.wav
+
+// explanation of fields:
+first term - resource id used by this server.
+second term - path to resource (file) which server will use to transfer data.
+
+	args65410.txt
+321  heartache.wav
+222  numb.wav
+346  ZenZenZense.wav
+
+	args65420.txt
+1  heartache.wav
+2  numb.wav
+3  ZenZenZense.wav
+
+2.6)	open terminal. navigate to folder where TestServer is located, and execute:
+	TestServer.exe -p 65400 -f args65400.txt
+allow network connections in Windows firewall if asked about it.
+2.7)	open another terminal. navigate to folder where TestServer is located, and execute:
+	TestServer.exe -p 65410 -f args65410.txt
+allow network connections in Windows firewall if asked about it.
+2.8)	open another terminal. navigate to folder where TestServer is located, and execute:
+	TestServer.exe -p 65420 -f args65420.txt
+allow network connections in Windows firewall if asked about it.
+
+navigate to place where CLI file is located and create files:
+
+	contentNumb.cf
+1   localhost 65400 200
+1   localhost 65410 222
+1   localhost 65420 2
+
+** explanation of field: first field is 0 if file is local (from hard drive), if first field 1:
+	second term is path to file. no spaces allowed
+	third argument set to 0
+	forth argument set to 0
+if first field is 1 - remotely located file.
+	second term is hostname of remote server
+	third term is port to which connection should be established
+	forth term is id of resource for this server ( see first term in server configuration files)
+
+run 
+cli -c contentNumb.cf

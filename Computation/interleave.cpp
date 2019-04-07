@@ -204,11 +204,18 @@ void ThreadedSocketRead::run()
         {
             dO>>dataLen;
             qDebug()<<"Reading "<<dataLen<<"  from socket";
-            qint64 v = c->read( task->ptr, dataLen);
+            qint64 doneBefore =0;
+            qint64 v  = 1;
+            while(v > 0) {
+                v = c->read( task->ptr + doneBefore, dataLen);
+                qDebug()<<"Actually got "<<v<<" bytes  from socket and was already ("<<doneBefore<<")";
+                doneBefore +=v;
+            }
             c->abort();
             delete c;
             if( v > 0) {
-                task->bytesDone = static_cast<int>( v);
+                qDebug()<<"returning as actually done"<<doneBefore;
+                task->bytesDone = static_cast<int>( doneBefore);
             }
             return;
         }

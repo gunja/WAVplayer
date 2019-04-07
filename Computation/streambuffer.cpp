@@ -1,5 +1,9 @@
 #include "streamBuffer.h"
 
+#define BUFF_DEF_SIZE  100000
+//#define BUFF_DEF_SIZE  24000
+
+
 bufferedStream::bufferedStream( QObject * par):
     QObject( par), currentSize(0), lastReadPosition(0),
     buffer(nullptr), fetchThread( nullptr)
@@ -13,6 +17,11 @@ size_t bufferedStream::fread(void *dst, int siz, int C)
     {
       mx.lock();
         int rem = currentSize - lastReadPosition;
+#if 0
+        qDebug()<<"buffer fread siz="<<siz<<"  and count ="<<C
+               <<"\tt while at curSize="<<currentSize<<"  and last read position"<<lastReadPosition
+              <<"  remained "<<rem;
+#endif
         if( rem <= 0) {
             mx.unlock();
             return 0;

@@ -67,7 +67,7 @@ class ThreadedSocketRead: public QThread {
     portionTask * task;
 public:
     ThreadedSocketRead( portionTask *p, QObject * par = nullptr):
-        QThread( par), task( p) {}
+        QThread( nullptr), task( p) {}
     void run() override;
 };
 
